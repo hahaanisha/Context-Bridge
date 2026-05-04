@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContextBridge</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-hex">⬡</span>
+        <div>
+          <div class="logo-name">ContextBridge</div>
+          <div class="logo-tag">AI Continuity Tool</div>
+        </div>
+      </div>
+      <div class="version">v1.0</div>
+    </header>
+
+    <!-- Status Card -->
+    <div class="status-card" id="statusCard">
+      <div class="status-dot" id="statusDot"></div>
+      <div class="status-info">
+        <div class="status-platform" id="statusPlatform">Scanning page…</div>
+        <div class="status-detail" id="statusDetail">Open an AI chat to get started</div>
+      </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats-row" id="statsRow" style="display:none">
+      <div class="stat-box">
+        <div class="stat-num" id="statMessages">—</div>
+        <div class="stat-label">Messages</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-box">
+        <div class="stat-num" id="statTokens">—</div>
+        <div class="stat-label">Est. Tokens</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-box">
+        <div class="stat-num" id="statExports">—</div>
+        <div class="stat-label">Exports Today</div>
+      </div>
+    </div>
+
+    <!-- Export Section -->
+    <div class="section-title">Export Format</div>
+    <div class="export-grid" id="exportGrid">
+      <button class="export-btn" data-format="markdown" disabled>
+        <span class="export-icon">📝</span>
+        <span class="export-name">Markdown</span>
+        <span class="export-hint">Best for new chats</span>
+      </button>
+      <button class="export-btn" data-format="text" disabled>
+        <span class="export-icon">📄</span>
+        <span class="export-name">Plain Text</span>
+        <span class="export-hint">Universal</span>
+      </button>
+      <button class="export-btn" data-format="json" disabled>
+        <span class="export-icon">⚙️</span>
+        <span class="export-name">JSON</span>
+        <span class="export-hint">For integrations</span>
+      </button>
+    </div>
+
+    <!-- How-to Box -->
+    <div class="howto-box">
+      <div class="howto-title">🔄 How to Resume Context</div>
+      <ol class="howto-steps">
+        <li>Export this chat ↑</li>
+        <li>Open a new session (or switch accounts/models)</li>
+        <li>Paste the file & say: <em>"Continue from this context"</em></li>
+      </ol>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>Built for teams · <strong>ContextBridge</strong></span>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

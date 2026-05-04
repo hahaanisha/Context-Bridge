@@ -1,0 +1,284 @@
+/* ContextBridge Popup Styles */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #111113;
+  --bg2: #18181c;
+  --bg3: #202025;
+  --border: rgba(255,255,255,0.08);
+  --text: #f0f0f0;
+  --text2: rgba(255,255,255,0.45);
+  --accent: #7C6AF7;
+  --accent2: #E05CDB;
+  --green: #4ade80;
+  --red: #f87171;
+}
+
+body {
+  width: 300px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.logo-hex {
+  font-size: 22px;
+  background: linear-gradient(135deg, #7C6AF7, #E05CDB);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+
+.logo-name {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.logo-tag {
+  font-size: 10px;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 1px;
+}
+
+.version {
+  font-size: 10px;
+  color: var(--text2);
+  background: var(--bg3);
+  padding: 3px 8px;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+}
+
+/* ── Status Card ── */
+.status-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text2);
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+
+.status-dot.active { background: var(--green); box-shadow: 0 0 6px rgba(74,222,128,0.5); }
+.status-dot.error  { background: var(--red); }
+
+.status-platform {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.status-detail {
+  font-size: 11px;
+  color: var(--text2);
+  margin-top: 2px;
+}
+
+/* ── Stats Row ── */
+.stats-row {
+  display: flex;
+  align-items: center;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.stat-box {
+  flex: 1;
+  text-align: center;
+  padding: 10px 8px;
+}
+
+.stat-num {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 36px;
+  background: var(--border);
+}
+
+/* ── Section Title ── */
+.section-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ── Export Grid ── */
+.export-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.export-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 8px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  color: var(--text);
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.export-btn:not(:disabled):hover {
+  background: var(--bg3);
+  border-color: rgba(124,106,247,0.4);
+  transform: translateY(-1px);
+}
+
+.export-btn:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+.export-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.export-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.export-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.export-hint {
+  font-size: 9px;
+  color: var(--text2);
+  line-height: 1.3;
+}
+
+/* ── How-to Box ── */
+.howto-box {
+  background: linear-gradient(135deg, rgba(124,106,247,0.08), rgba(224,92,219,0.06));
+  border: 1px solid rgba(124,106,247,0.2);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.howto-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.howto-steps {
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.howto-steps li {
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.5;
+}
+
+.howto-steps em {
+  color: rgba(255,255,255,0.65);
+  font-style: normal;
+  font-weight: 500;
+}
+
+/* ── Footer ── */
+.footer {
+  text-align: center;
+  font-size: 10px;
+  color: var(--text2);
+  padding-top: 2px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #2a2a2e;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.25s ease;
+  z-index: 99;
+}
+
+.toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
