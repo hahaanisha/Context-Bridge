@@ -1,6 +1,7 @@
 <p align="center">
-  <img src="readme/hero.png" alt="SenseAI Logo" width="600" />
+  <img src="readme/hero.png" alt="SenseAI Logo" width="1000" />
 </p>
+
 # ⬡ ContextBridge — AI Continuity Tool
 
 > **Built for the Hackathon** · Internal Tooling · Cost Reduction + Operational Efficiency
