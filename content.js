@@ -903,7 +903,10 @@ ${rows}
     }).observe(document.body, { childList: true, subtree: true });
   }
 
+
+  
   document.readyState === "loading"
     ? document.addEventListener("DOMContentLoaded", init)
     : init();
 })();
+
