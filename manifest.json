@@ -1,14 +1,18 @@
 {
   "manifest_version": 3,
   "name": "ContextBridge — AI Continuity Tool",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "Export AI chat context to resume seamlessly across accounts, sessions, or models. Built for teams who move fast.",
   "permissions": ["activeTab", "downloads", "scripting", "storage", "tabs"],
   "host_permissions": [
     "https://claude.ai/*",
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
-    "https://gemini.google.com/*"
+    "https://gemini.google.com/*",
+    "https://grok.com/*",
+    "https://x.com/*",
+    "https://chat.deepseek.com/*",
+    "https://chat.mistral.ai/*"
   ],
   "action": {
     "default_popup": "popup/popup.html",
@@ -31,7 +35,11 @@
         "https://claude.ai/*",
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",
-        "https://gemini.google.com/*"
+        "https://gemini.google.com/*",
+        "https://grok.com/*",
+        "https://x.com/*",
+        "https://chat.deepseek.com/*",
+        "https://chat.mistral.ai/*"
       ],
       "js": ["content.js"],
       "css": ["content.css"],
