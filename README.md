@@ -29,8 +29,8 @@ ContextBridge is a lightweight browser extension that adds a persistent **Export
 That file then becomes your **context passport**: paste it into any new chat session on any account or model, and the AI instantly has full context of everything that was discussed.
 
 ```
-Your Current Session          →    Export    →    New Session / Account / Model
-[All context, decisions,               📄            [Full context restored in
+Your Current Session          →    Export📄    →    New Session / Account / Model
+[All context, decisions,                           [Full context restored in
  code, analysis, progress]                           seconds. Work continues.]
 ```
 
