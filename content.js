@@ -57,6 +57,25 @@
   if (!platformKey) return;
   const config = PLATFORMS[platformKey];
 
+  // ── Settings (synced from popup) ─────────────────────────────────────────────
+  let CB_SETTINGS = {
+    showButton: true,
+    includeArtifacts: true,
+    includeTimestamps: true,
+  };
+
+  // Track whether settings were already pushed from popup (wins over storage async read)
+  let _settingsFromPopup = false;
+
+  // Load persisted settings on startup
+  chrome.storage.local.get(["cbSettings"], (r) => {
+    // Only apply if popup hasn't already sent us fresh settings
+    if (!_settingsFromPopup && r.cbSettings) {
+      Object.assign(CB_SETTINGS, r.cbSettings);
+    }
+    applyShowButtonSetting();
+  });
+
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
   function cleanText(el, stripSels) {
@@ -104,24 +123,42 @@
 
   // ── Claude ───────────────────────────────────────────────────────────────────
   function extractClaude() {
-    const STRIP = ["button", "svg", "[data-testid='action-bar']"];
+    const STRIP = [
+      "button", "svg", "[data-testid='action-bar']",
+      "[data-testid='input-menu']", ".sr-only", "nav", "aside",
+    ];
 
-    // S1: testid turn wrappers
+    // Helper: check if an element is inside the sidebar/nav (not the chat)
+    function inSidebar(el) {
+      let cur = el;
+      while (cur) {
+        const tag = cur.tagName?.toLowerCase();
+        const role = cur.getAttribute?.("data-testid") || "";
+        if (tag === "nav" || tag === "aside") return true;
+        if (role.includes("sidebar") || role.includes("nav")) return true;
+        const cls = cur.className || "";
+        if (typeof cls === "string" &&
+            (cls.includes("sidebar") || cls.includes("nav-") || cls.includes("Sidebar")))
+          return true;
+        cur = cur.parentElement;
+      }
+      return false;
+    }
+
+    // S1: conversation-turn testid wrappers (most reliable)
     {
-      const turns = document.querySelectorAll(
-        '[data-testid^="conversation-turn-"]',
-      );
+      const turns = document.querySelectorAll('[data-testid^="conversation-turn-"]');
       if (turns.length) {
         const msgs = [];
         turns.forEach((turn) => {
+          if (inSidebar(turn)) return;
           const h = turn.querySelector('[data-testid="human-turn"]');
           const a = turn.querySelector('[data-testid="ai-turn"]');
           if (h) {
             const t = cleanText(h, STRIP);
             if (t) msgs.push({ role: "user", content: t });
           } else if (a) {
-            const prose =
-              a.querySelector('.font-claude-message, [class*="prose"]') || a;
+            const prose = a.querySelector('.font-claude-message, [class*="prose"]') || a;
             const t = cleanText(prose, STRIP);
             if (t) msgs.push({ role: "assistant", content: t });
           }
@@ -130,18 +167,20 @@
       }
     }
 
-    // S2: direct testid / class selectors
+    // S2: direct human-turn / ai-turn testid elements, excluding sidebar
     {
       const combined = [];
       [
-        { sel: '[data-testid="human-turn"], .human-turn', role: "user" },
-        {
-          sel: '[data-testid="ai-turn"], .ai-turn, .font-claude-message',
-          role: "assistant",
-        },
+        { sel: '[data-testid="human-turn"]', role: "user" },
+        { sel: '[data-testid="ai-turn"]', role: "assistant" },
       ].forEach(({ sel, role }) => {
         document.querySelectorAll(sel).forEach((el) => {
-          const t = cleanText(el, STRIP);
+          if (inSidebar(el)) return;
+          // For ai-turn, prefer the prose child
+          const target = role === "assistant"
+            ? (el.querySelector('.font-claude-message, [class*="prose"]') || el)
+            : el;
+          const t = cleanText(target, STRIP);
           if (t) combined.push({ role, content: t, el });
         });
       });
@@ -150,105 +189,70 @@
         return dedup(combined.map(({ role, content }) => ({ role, content })));
     }
 
-    // S3: scrollable container children
+    // S3: look for the main chat scroll container and walk its direct children
     {
-      const candidates = Array.from(
-        document.querySelectorAll("main [class], div[class]"),
-      ).filter(
-        (el) =>
+      // Find the chat scroll area — it's usually the only tall scrollable in <main>
+      const scrollAreas = Array.from(
+        document.querySelectorAll("main *, [role='main'] *")
+      ).filter((el) => {
+        if (inSidebar(el)) return false;
+        return (
+          el.scrollHeight > window.innerHeight &&
           el.children.length >= 2 &&
-          el.children.length <= 200 &&
-          el.scrollHeight > 400,
-      );
-      let best = null,
-        bestScore = 0;
-      candidates.forEach((c) => {
-        const score = Array.from(c.children).reduce(
-          (s, k) => s + (k.textContent?.length || 0),
-          0,
+          el.children.length <= 300
         );
-        if (score > bestScore) {
-          bestScore = score;
-          best = c;
-        }
       });
-      if (best) {
+
+      // Pick the one closest to the root of main (fewest ancestors)
+      scrollAreas.sort((a, b) => {
+        let da = 0, db = 0, cur;
+        cur = a; while (cur) { da++; cur = cur.parentElement; }
+        cur = b; while (cur) { db++; cur = cur.parentElement; }
+        return da - db;
+      });
+
+      for (const container of scrollAreas) {
         const combined = [];
-        Array.from(best.children).forEach((child) => {
-          const text = cleanText(child, STRIP);
-          if (!text || text.length < 10) return;
-          const hasEditable = !!child.querySelector("[contenteditable]");
-          const isUserTestId =
+        Array.from(container.children).forEach((child) => {
+          if (inSidebar(child)) return;
+          const isUser =
             !!child.querySelector('[data-testid="human-turn"]') ||
             child.getAttribute("data-testid")?.includes("human");
-          const isAITestId =
+          const isAI =
             !!child.querySelector('[data-testid="ai-turn"]') ||
-            !!child.querySelector(".font-claude-message");
-          let role = null;
-          if (hasEditable || isUserTestId) role = "user";
-          else if (isAITestId) role = "assistant";
-          if (role) combined.push({ role, content: text, el: child });
+            !!child.querySelector(".font-claude-message") ||
+            child.getAttribute("data-testid")?.includes("ai");
+          if (!isUser && !isAI) return;
+          const target = isAI
+            ? (child.querySelector('.font-claude-message, [class*="prose"], [data-testid="ai-turn"]') || child)
+            : child.querySelector('[data-testid="human-turn"]') || child;
+          const t = cleanText(target, STRIP);
+          if (t && t.length >= 2) combined.push({ role: isUser ? "user" : "assistant", content: t, el: child });
         });
         if (combined.length)
-          return dedup(
-            combined.map(({ role, content }) => ({ role, content })),
-          );
+          return dedup(combined.map(({ role, content }) => ({ role, content })));
       }
     }
 
-    // S4: p/li ancestry walk
+    // S4: ancestry walk on p/li — only inside known turn containers, skip sidebar
     {
       const combined = [];
-      document.querySelectorAll("p, li").forEach((el) => {
+      document.querySelectorAll('[data-testid="human-turn"] p, [data-testid="ai-turn"] p').forEach((el) => {
+        if (inSidebar(el)) return;
         const text = (el.innerText || el.textContent || "").trim();
-        if (text.length < 20) return;
-        let container = el.parentElement;
-        for (let i = 0; i < 8 && container; i++) {
-          const tid = container.getAttribute("data-testid") || "";
-          if (
-            tid.includes("human-turn") ||
-            tid.includes("ai-turn") ||
-            tid.includes("conversation-turn")
-          )
-            break;
+        if (text.length < 5) return;
+        let container = el;
+        while (container && !container.getAttribute?.("data-testid")?.match(/human-turn|ai-turn/)) {
           container = container.parentElement;
         }
         if (!container) return;
-        const tid = container.getAttribute("data-testid") || "";
-        const role = tid.includes("human")
-          ? "user"
-          : tid.includes("ai")
-            ? "assistant"
-            : null;
-        if (role) combined.push({ role, content: text, el });
+        const tid = container.getAttribute("data-testid");
+        const role = tid.includes("human") ? "user" : "assistant";
+        combined.push({ role, content: text, el });
       });
       combined.sort(domOrder);
       if (combined.length)
         return dedup(combined.map(({ role, content }) => ({ role, content })));
-    }
-
-    // S5: nuclear alternating fallback
-    {
-      const blocks = [];
-      document
-        .querySelectorAll("p, [class*='message'], [class*='text']")
-        .forEach((el) => {
-          const text = (el.innerText || "").trim();
-          if (text.length > 30 && !el.querySelector("p"))
-            blocks.push({ text, el });
-        });
-      blocks.sort((a, b) => domOrder({ el: a.el }, { el: b.el }));
-      const seen = new Set();
-      const unique = blocks.filter(({ text }) => {
-        if (seen.has(text.slice(0, 60))) return false;
-        seen.add(text.slice(0, 60));
-        return true;
-      });
-      if (unique.length)
-        return unique.map(({ text }, i) => ({
-          role: i % 2 === 0 ? "user" : "assistant",
-          content: text,
-        }));
     }
 
     return [];
@@ -615,11 +619,11 @@ ${rows}
       "",
       "## Conversation",
       "",
-      ...d.messages.flatMap((m) => [
-        `### ${m.role === "user" ? "👤 **You**" : `🤖 **${d.meta.platform}**`}`,
-        m.content,
-        "",
-      ]),
+      ...d.messages.flatMap((m) => {
+        const header = `### ${m.role === "user" ? "👤 **You**" : `🤖 **${d.meta.platform}**`}`;
+        const ts = m.timestamp ? `*🕐 ${new Date(m.timestamp).toLocaleString()}*` : null;
+        return [header, ts, m.content, ""].filter((l) => l !== null);
+      }),
     ].join("\n");
   }
 
@@ -653,13 +657,17 @@ ${rows}
       "",
       "=".repeat(60),
       "",
-      ...d.messages.flatMap((m) => [
-        m.role === "user" ? "[YOU]" : `[${d.meta.platform.toUpperCase()}]`,
-        m.content,
-        "",
-        "-".repeat(40),
-        "",
-      ]),
+      ...d.messages.flatMap((m) => {
+        const header = m.role === "user" ? "[YOU]" : `[${d.meta.platform.toUpperCase()}]`;
+        const ts = m.timestamp ? ` — ${new Date(m.timestamp).toLocaleString()}` : "";
+        return [
+          header + ts,
+          m.content,
+          "",
+          "-".repeat(40),
+          "",
+        ];
+      }),
     ].join("\n");
   }
 
@@ -685,8 +693,9 @@ ${rows}
     }
   }
 
-  function triggerExport(format) {
-    const msgs = extractMessages();
+  function triggerExport(format, settings) {
+    const opts = Object.assign({}, CB_SETTINGS, settings || {});
+    let msgs = extractMessages();
     if (!msgs.length) {
       showToast(
         "⚠️ No messages found. Run CB_DEBUG() in DevTools console.",
@@ -694,6 +703,28 @@ ${rows}
       );
       return;
     }
+
+    // Filter out code/artifact blocks if setting is off
+    if (!opts.includeArtifacts) {
+      msgs = msgs.map((m) => ({
+        ...m,
+        content: m.content
+          // Remove fenced code blocks (``` ... ```)
+          .replace(/```[\s\S]*?```/g, "[code block removed]")
+          // Remove inline code
+          .replace(/`[^`]+`/g, "[code removed]"),
+      }));
+    }
+
+    // Attach timestamps if setting is on
+    if (opts.includeTimestamps) {
+      const now = new Date();
+      msgs = msgs.map((m, i) => ({
+        ...m,
+        timestamp: m.timestamp || new Date(now.getTime() + i * 1000).toISOString(),
+      }));
+    }
+
     const d = buildData(msgs);
     const safe = d.meta.title
       .replace(/[^a-z0-9]/gi, "_")
@@ -743,8 +774,15 @@ ${rows}
       });
       return true;
     }
+    if (msg.action === "updateSettings") {
+      _settingsFromPopup = true;
+      Object.assign(CB_SETTINGS, msg.settings || {});
+      applyShowButtonSetting();
+      reply({ success: true });
+      return true;
+    }
     if (msg.action === "export") {
-      triggerExport(msg.format);
+      triggerExport(msg.format, msg.settings);
       reply({ success: true });
       return true;
     }
@@ -786,6 +824,20 @@ ${rows}
     }, 4000);
   }
 
+  // ── Show/hide floating button based on settings ───────────────────────────────
+  function applyShowButtonSetting() {
+    const wrapper = document.querySelector(".cb-float-wrapper");
+    if (!wrapper) return;
+    wrapper.style.display = CB_SETTINGS.showButton ? "" : "none";
+  }
+
+  // Watch for the wrapper being added to DOM and apply setting immediately
+  const _cbObserver = new MutationObserver(() => {
+    const wrapper = document.querySelector(".cb-float-wrapper");
+    if (wrapper) applyShowButtonSetting();
+  });
+  _cbObserver.observe(document.documentElement, { childList: true, subtree: true });
+
   // ── Floating button ───────────────────────────────────────────────────────────
   function createFloatingButton() {
     if (document.querySelector(".cb-float-wrapper")) return;
@@ -812,6 +864,7 @@ ${rows}
         <div class="cb-menu-tip">💡 Open a new chat, paste the file, and say: <em>"Continue from this context"</em></div>
       </div>`;
     document.body.appendChild(w);
+    applyShowButtonSetting();
     const btn = w.querySelector(".cb-float-btn");
     const menu = w.querySelector(".cb-menu");
     btn.addEventListener("click", (e) => {

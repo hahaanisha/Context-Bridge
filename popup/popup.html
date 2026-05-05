@@ -63,7 +63,7 @@
       <div class="token-warn" id="tokenWarn" style="display:none"></div>
     </div>
 
-    <!-- Export Section -->
+    <!-- Export Format -->
     <div class="section-title">Export Format</div>
     <div class="export-grid" id="exportGrid">
       <button class="export-btn" data-format="markdown" disabled>
@@ -88,13 +88,57 @@
       </button>
     </div>
 
+    <!-- Export Settings -->
+    <div class="section-title">Export Settings</div>
+    <div class="settings-card">
+
+      <!-- Common Settings -->
+      <div class="settings-group-label">
+        <span class="settings-info-icon">ⓘ</span> Common settings
+      </div>
+      <div class="settings-card-inner">
+        <div class="setting-row">
+          <span class="setting-label">Show / Hide Export Button</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="settingShowButton" checked />
+            <span class="toggle-track">
+              <span class="toggle-thumb"></span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Include in Export -->
+      <div class="settings-group-label" style="margin-top:10px">
+        <span class="settings-info-icon">ⓘ</span> Include in export
+      </div>
+      <div class="settings-card-inner">
+        <div class="setting-row setting-row--check">
+          <span class="setting-label">Artifacts &amp; Code Blocks</span>
+          <label class="custom-checkbox">
+            <input type="checkbox" id="settingArtifacts" checked />
+            <span class="checkmark"></span>
+          </label>
+        </div>
+        <div class="setting-divider"></div>
+        <div class="setting-row setting-row--check">
+          <span class="setting-label">Message Timestamps</span>
+          <label class="custom-checkbox">
+            <input type="checkbox" id="settingTimestamps" checked />
+            <span class="checkmark"></span>
+          </label>
+        </div>
+      </div>
+
+    </div>
+
     <!-- How-to Box -->
     <div class="howto-box">
       <div class="howto-title">🔄 How to Resume Context</div>
       <ol class="howto-steps">
         <li>Export this chat ↑</li>
         <li>Open a new session (or switch accounts/models)</li>
-        <li>Paste the file & say: <em>"Continue from this context"</em></li>
+        <li>Paste the file &amp; say: <em>"Continue from this context"</em></li>
       </ol>
     </div>
 

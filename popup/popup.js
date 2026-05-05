@@ -41,11 +41,8 @@ async function ensureContentScript(tabId) {
     if (pong?.alive) return true;
   } catch (_) {}
   try {
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      files: ["content.js"],
-    });
-    await new Promise((r) => setTimeout(r, 300));
+    await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
+    await new Promise((r) => setTimeout(r, 500));
     return true;
   } catch (err) {
     console.warn("ContextBridge: could not inject content script", err);
@@ -53,30 +50,83 @@ async function ensureContentScript(tabId) {
   }
 }
 
+// ── Settings persistence ──────────────────────────────────────────────────────
+const SETTINGS_KEY = "cbSettings";
+
+const DEFAULT_SETTINGS = {
+  showButton: true,
+  includeArtifacts: true,
+  includeTimestamps: true,
+};
+
+function readSettingsFromUI() {
+  return {
+    showButton: $("settingShowButton").checked,
+    includeArtifacts: $("settingArtifacts").checked,
+    includeTimestamps: $("settingTimestamps").checked,
+  };
+}
+
+async function loadSettings() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([SETTINGS_KEY], (result) => {
+      resolve(Object.assign({}, DEFAULT_SETTINGS, result[SETTINGS_KEY] || {}));
+    });
+  });
+}
+
+async function saveSettings(settings) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [SETTINGS_KEY]: settings }, resolve);
+  });
+}
+
+// Send updated settings to the content script on the active tab
+async function syncSettingsToPage(settings) {
+  try {
+    const tab = await getCurrentTab();
+    if (!tab || !isSupported(tab.url)) return;
+    const ready = await ensureContentScript(tab.id);
+    if (!ready) return;
+    await chrome.tabs.sendMessage(tab.id, { action: "updateSettings", settings });
+  } catch (_) {}
+}
+
+async function initSettings() {
+  // Load from storage and render into UI
+  const settings = await loadSettings();
+  $("settingShowButton").checked = settings.showButton;
+  $("settingArtifacts").checked = settings.includeArtifacts;
+  $("settingTimestamps").checked = settings.includeTimestamps;
+
+  // Push current settings to the page immediately
+  await syncSettingsToPage(settings);
+
+  // On any change: save + push to page instantly
+  const onChange = async () => {
+    const updated = readSettingsFromUI();
+    await saveSettings(updated);
+    await syncSettingsToPage(updated);
+  };
+
+  $("settingShowButton").addEventListener("change", onChange);
+  $("settingArtifacts").addEventListener("change", onChange);
+  $("settingTimestamps").addEventListener("change", onChange);
+}
+
 // ── Token meter UI ────────────────────────────────────────────────────────────
 function renderTokenMeter(ti) {
-  if (!ti) {
-    $("tokenMeter").style.display = "none";
-    return;
-  }
-
+  if (!ti) { $("tokenMeter").style.display = "none"; return; }
   $("tokenMeter").style.display = "block";
   $("tokenPct").textContent = `${ti.pct}%`;
   $("tokenFill").style.width = `${Math.min(ti.pct, 100)}%`;
-
   $("tokenFill").className =
     "token-fill" +
-    (ti.critical
-      ? " token-fill--critical"
-      : ti.warning
-        ? " token-fill--warning"
-        : "");
-
+    (ti.critical ? " token-fill--critical" : ti.warning ? " token-fill--warning" : "");
   $("tokenRemaining").textContent =
     ti.remaining >= 1000
       ? `~${(ti.remaining / 1000).toFixed(1)}k tokens remaining`
       : `~${ti.remaining} tokens remaining`;
-
   if (ti.warning) {
     $("tokenWarn").style.display = "block";
     $("tokenWarn").textContent = ti.critical
@@ -110,9 +160,7 @@ async function loadStats() {
   }
 
   try {
-    const response = await chrome.tabs.sendMessage(tab.id, {
-      action: "getStats",
-    });
+    const response = await chrome.tabs.sendMessage(tab.id, { action: "getStats" });
 
     if (response && response.messageCount > 0) {
       $("statusDot").className = "status-dot active";
@@ -146,20 +194,18 @@ async function loadStats() {
   }
 }
 
-// ── Export buttons ────────────────────────────────────────────────────────────
+// ── Export buttons (popup grid) ───────────────────────────────────────────────
 document.querySelectorAll(".export-btn").forEach((btn) => {
   btn.addEventListener("click", async () => {
     const format = btn.dataset.format;
     const tab = await getCurrentTab();
+    const settings = await loadSettings();
 
     try {
       btn.style.opacity = "0.5";
       const ready = await ensureContentScript(tab.id);
-      if (!ready) {
-        showToast("Could not connect. Try refreshing.");
-        return;
-      }
-      await chrome.tabs.sendMessage(tab.id, { action: "export", format });
+      if (!ready) { showToast("Could not connect. Try refreshing."); return; }
+      await chrome.tabs.sendMessage(tab.id, { action: "export", format, settings });
       showToast(
         format === "pdf"
           ? "PDF preview opened — use Ctrl+P to save"
@@ -173,5 +219,6 @@ document.querySelectorAll(".export-btn").forEach((btn) => {
   });
 });
 
-// Init
+// Init — run in parallel so stats and settings load together
 loadStats();
+initSettings();
