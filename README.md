@@ -1,4 +1,11 @@
-# ContextBridge — AI Continuity Tool
+<p align="center">
+  <img src="readme/hero.png" alt="SenseAI Logo" width="600" />
+</p>
+# ⬡ ContextBridge — AI Continuity Tool
+
+> **Built for the Hackathon** · Internal Tooling · Cost Reduction + Operational Efficiency
+
+---
 
 ## The Problem We're Solving
 
@@ -16,7 +23,7 @@ Now what? You either wait hours for the limit to reset, switch to a different ac
 
 ## What It Does
 
-ContextBridge is a lightweight browser extension that adds a persistent **Export** button to any AI chat interface (Claude, ChatGPT, Gemini). When you're approaching a token/message limit — or simply want to hand off context to a colleague — you export the full conversation as a structured file.
+ContextBridge is a lightweight browser extension that adds a persistent **Export** button to any AI chat interface (Claude, ChatGPT, Gemini, Grok, DeepSeek, Mistral). When you're approaching a token/message limit — or simply want to hand off context to a colleague — you export the full conversation as a structured file.
 
 That file then becomes your **context passport**: paste it into any new chat session on any account or model, and the AI instantly has full context of everything that was discussed.
 
@@ -67,20 +74,34 @@ Since this is an internal tool, install it directly without the Chrome Web Store
 
 ### Method 1: Floating Button (Recommended)
 
-When you're on Claude, ChatGPT, or Gemini, a small **Export** button appears in the bottom-right corner of the page. Click it to see export options:
+When you're on any supported AI platform, a small **Export** button appears in the bottom-right corner of the page. Click it to see export options:
 
 | Format | Best For |
 |--------|----------|
 | **Markdown (.md)** | Pasting directly into new AI chats |
 | **Plain Text (.txt)** | Universal — works with any tool |
 | **JSON (.json)** | API integrations, automation pipelines |
+| **PDF (.html → PDF)** | Sharing with teammates, archiving |
 
 ### Method 2: Extension Popup
 
 Click the ⬡ icon in your browser toolbar to see:
-- Current platform detected (Claude / ChatGPT / Gemini)
+- Current platform detected (Claude / ChatGPT / Gemini / Grok / DeepSeek / Mistral)
 - Message count and estimated token usage
-- One-click export buttons
+- **Context window meter** — how much of the current session's token limit is used
+- One-click export buttons for all four formats
+
+---
+
+## Context Window Meter
+
+The popup displays a live progress bar showing how much of the platform's context window your current conversation is consuming:
+
+- 🟢 **Under 80%** — you're fine, keep going
+- 🟡 **80–94%** — getting full, consider exporting soon
+- 🔴 **95%+** — context nearly full, export now before you hit the wall
+
+> **Note:** Token counts are estimated from visible message text (approx. 4 characters = 1 token). Limits shown are conservative free-tier context window sizes. Actual limits vary by account plan and model version.
 
 ---
 
@@ -110,12 +131,31 @@ Below is the full conversation history. Please:
 
 ## Supported Platforms
 
-| Platform | Status |
-|----------|--------|
-| Claude (claude.ai) | ✅ Fully supported |
-| ChatGPT (chatgpt.com) | ✅ Fully supported |
-| Gemini (gemini.google.com) | ✅ Fully supported |
-| OpenAI Legacy (chat.openai.com) | ✅ Fully supported |
+| Platform | URL | Status |
+|----------|-----|--------|
+| Claude | claude.ai | ✅ Fully supported |
+| ChatGPT | chatgpt.com | ✅ Fully supported |
+| Gemini | gemini.google.com | ✅ Fully supported |
+| OpenAI Legacy | chat.openai.com | ✅ Fully supported |
+| Grok | grok.com / x.com | ✅ Supported |
+| DeepSeek | chat.deepseek.com | ✅ Supported |
+| Mistral | chat.mistral.ai | ✅ Supported |
+
+---
+
+## Export Formats
+
+### Markdown (.md)
+Best for pasting directly into new AI chat sessions. Includes a formatted resume prompt header, token usage summary, and the full conversation.
+
+### Plain Text (.txt)
+Universal format. Readable by every tool and every AI. Includes token usage warnings if context is running high.
+
+### JSON (.json)
+Structured export with full metadata. Ideal for building integrations, feeding into internal pipelines, or logging conversations programmatically.
+
+### PDF (via HTML)
+Exports a fully styled `.html` file to your downloads folder. Open it in any browser and press `Ctrl+P` → **Save as PDF**. The PDF includes a token usage bar, conversation history, and a resume prompt — useful for sharing with teammates or archiving completed sessions.
 
 ---
 
@@ -156,8 +196,16 @@ Below is the full conversation history. Please:
     "exportedAt": "2026-05-04T14:32:00Z",
     "messageCount": 24,
     "estimatedTokens": 6200,
+    "tokenInfo": {
+      "limit": 90000,
+      "used": 6200,
+      "remaining": 83800,
+      "pct": 7,
+      "warning": false,
+      "critical": false
+    },
     "url": "https://claude.ai/chat/...",
-    "exportedBy": "ContextBridge v1.0"
+    "exportedBy": "ContextBridge v2.0"
   },
   "messages": [
     { "role": "user", "content": "..." },
@@ -168,6 +216,26 @@ Below is the full conversation history. Please:
 
 ---
 
+## Limitations & Known Issues
+
+### DOM-Based Extraction
+ContextBridge reads conversations by querying the **live DOM** of the chat page — it does not use any official API. This means:
+
+- **Claude** is the most fragile. Anthropic frequently updates their front-end, and class names / `data-testid` attributes change with deployments. The extension uses a 5-strategy waterfall to handle this (from specific `data-testid` selectors down to a generic alternating-block fallback), but a major Claude front-end update may break extraction temporarily until selectors are updated.
+- **Message count reflects the current DOM**, not the full chat history. If Claude or ChatGPT hasn't rendered older messages (because you haven't scrolled up), they won't be captured. **Scroll to the top of the conversation before exporting** to ensure everything is loaded.
+- **Grok, DeepSeek, and Mistral** have less stable DOM structures than Claude or ChatGPT and rely more on heuristic/fallback extraction. Accuracy may vary depending on the platform version.
+
+### Token Estimates
+Token counts are estimated (characters ÷ 4). They are directionally accurate but not exact. Different models tokenise differently — GPT-4 and Claude may produce different token counts for the same text.
+
+### PDF Export
+PDF export downloads a styled `.html` file. There is no native PDF generation in browser extensions (without bundling a large third-party library). The workflow is: download the `.html` → open in browser → `Ctrl+P` → Save as PDF. This is a one-time 10-second step.
+
+### Free Tier Limits
+Context window limits in the token meter are based on known free-tier defaults. Paid plan limits vary significantly and are not currently detected automatically.
+
+---
+
 ## Roadmap (Post-Hackathon)
 
 - [ ] **Auto-detect** approaching token limits and prompt export proactively
@@ -175,6 +243,9 @@ Below is the full conversation history. Please:
 - [ ] **Context compression** — AI-summarised export for very long conversations
 - [ ] **Cross-model handoff** — smart prompt reformatting for Claude → ChatGPT switches
 - [ ] **Keyboard shortcut** — export without opening any UI
+- [ ] **Native PDF generation** — remove the open-in-browser step
+- [ ] **API-based extraction** — more reliable than DOM scraping; requires OAuth integration per platform
+- [ ] **Selector auto-update** — detect when platform DOM changes and fall back gracefully with a user notification
 
 ---
 
@@ -185,12 +256,12 @@ context-bridge/
 ├── manifest.json         # Extension config (Manifest V3)
 ├── content.js            # Injected into AI chat pages — extracts messages, renders button
 ├── content.css           # Styles for floating button and toast notifications
-├── background.js         # Service worker
+├── background.js         # Service worker — handles file downloads
 ├── icons/                # Extension icons (16, 32, 48, 128px)
 └── popup/
     ├── popup.html        # Toolbar popup UI
     ├── popup.css         # Popup styles
-    └── popup.js          # Popup logic — reads page stats, triggers exports
+    └── popup.js          # Popup logic — reads page stats, renders token meter, triggers exports
 ```
 
 ---
@@ -203,4 +274,4 @@ Built at the Internal Tools Hackathon · May 2026
 
 ---
 
-*ContextBridge is an internal tool. Not affiliated with Anthropic, OpenAI, or Google.*
+*ContextBridge is an internal tool. Not affiliated with Anthropic, OpenAI, Google, xAI, DeepSeek, or Mistral.*
