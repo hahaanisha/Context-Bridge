@@ -1,8 +1,4 @@
-# ⬡ ContextBridge — AI Continuity Tool
-
-> **Built for the Hackathon** · Internal Tooling · Cost Reduction + Operational Efficiency
-
----
+# ContextBridge — AI Continuity Tool
 
 ## The Problem We're Solving
 
