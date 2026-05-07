@@ -133,8 +133,8 @@
       let cur = el;
       while (cur) {
         const tag = cur.tagName?.toLowerCase();
-        const role = cur.getAttribute?.("data-testid") || "";
         if (tag === "nav" || tag === "aside") return true;
+        const role = cur.getAttribute?.("data-testid") || "";
         if (role.includes("sidebar") || role.includes("nav")) return true;
         const cls = cur.className || "";
         if (typeof cls === "string" &&
@@ -145,7 +145,7 @@
       return false;
     }
 
-    // S1: conversation-turn testid wrappers (most reliable)
+    // S1: conversation-turn testid wrappers (legacy but keep for older builds)
     {
       const turns = document.querySelectorAll('[data-testid^="conversation-turn-"]');
       if (turns.length) {
@@ -167,7 +167,36 @@
       }
     }
 
-    // S2: direct human-turn / ai-turn testid elements, excluding sidebar
+    // S2: Current Claude UI — user-message / assistant message testids
+    // Claude now uses data-testid="user-message" for user turns
+    // and renders AI content inside .font-claude-message or [data-is-streaming]
+    {
+      const msgs = [];
+      // Try user-message testid (current Claude UI as of 2025-2026)
+      const userMsgs = document.querySelectorAll('[data-testid="user-message"]');
+      const aiMsgs = document.querySelectorAll(
+        '.font-claude-message, [data-testid="assistant-message"], [class*="AssistantMessage"]'
+      );
+
+      if (userMsgs.length || aiMsgs.length) {
+        const combined = [];
+        userMsgs.forEach((el) => {
+          if (inSidebar(el)) return;
+          const t = cleanText(el, STRIP);
+          if (t) combined.push({ role: "user", content: t, el });
+        });
+        aiMsgs.forEach((el) => {
+          if (inSidebar(el)) return;
+          const t = cleanText(el, STRIP);
+          if (t) combined.push({ role: "assistant", content: t, el });
+        });
+        combined.sort(domOrder);
+        if (combined.length)
+          return dedup(combined.map(({ role, content }) => ({ role, content })));
+      }
+    }
+
+    // S3: direct human-turn / ai-turn testid elements, excluding sidebar
     {
       const combined = [];
       [
@@ -176,7 +205,6 @@
       ].forEach(({ sel, role }) => {
         document.querySelectorAll(sel).forEach((el) => {
           if (inSidebar(el)) return;
-          // For ai-turn, prefer the prose child
           const target = role === "assistant"
             ? (el.querySelector('.font-claude-message, [class*="prose"]') || el)
             : el;
@@ -189,9 +217,50 @@
         return dedup(combined.map(({ role, content }) => ({ role, content })));
     }
 
-    // S3: look for the main chat scroll container and walk its direct children
+    // S4: Virtualized list approach — Claude uses react-virtuoso for long chats.
+    // Walk the virtuoso item list or any scrollable chat container.
     {
-      // Find the chat scroll area — it's usually the only tall scrollable in <main>
+      // Broader set of container candidates
+      const containerSelectors = [
+        '[data-testid="virtuoso-item-list"]',
+        '[data-testid="virtuoso-scroller"]',
+        '[class*="Virtuoso"]',
+        '[class*="ScrollSeekContainer"]',
+        'main [class*="overflow-y-auto"]',
+        'main [class*="overflow-auto"]',
+      ];
+
+      for (const sel of containerSelectors) {
+        const container = document.querySelector(sel);
+        if (!container) continue;
+        if (inSidebar(container)) continue;
+
+        const combined = [];
+        // Walk ALL descendants looking for message-like nodes
+        const allChildren = container.querySelectorAll(
+          '[data-testid="user-message"], [data-testid="human-turn"], ' +
+          '.font-claude-message, [data-testid="ai-turn"], ' +
+          '[data-testid="assistant-message"], [class*="AssistantMessage"]'
+        );
+
+        allChildren.forEach((el) => {
+          if (inSidebar(el)) return;
+          const isUser =
+            el.getAttribute("data-testid") === "user-message" ||
+            el.getAttribute("data-testid") === "human-turn";
+          const t = cleanText(el, STRIP);
+          if (t && t.length >= 2)
+            combined.push({ role: isUser ? "user" : "assistant", content: t, el });
+        });
+
+        combined.sort(domOrder);
+        if (combined.length)
+          return dedup(combined.map(({ role, content }) => ({ role, content })));
+      }
+    }
+
+    // S5: look for the main chat scroll container and walk its direct children
+    {
       const scrollAreas = Array.from(
         document.querySelectorAll("main *, [role='main'] *")
       ).filter((el) => {
@@ -203,7 +272,6 @@
         );
       });
 
-      // Pick the one closest to the root of main (fewest ancestors)
       scrollAreas.sort((a, b) => {
         let da = 0, db = 0, cur;
         cur = a; while (cur) { da++; cur = cur.parentElement; }
@@ -216,39 +284,57 @@
         Array.from(container.children).forEach((child) => {
           if (inSidebar(child)) return;
           const isUser =
-            !!child.querySelector('[data-testid="human-turn"]') ||
-            child.getAttribute("data-testid")?.includes("human");
+            !!child.querySelector('[data-testid="user-message"], [data-testid="human-turn"]') ||
+            child.getAttribute("data-testid")?.includes("human") ||
+            child.getAttribute("data-testid") === "user-message";
           const isAI =
-            !!child.querySelector('[data-testid="ai-turn"]') ||
-            !!child.querySelector(".font-claude-message") ||
-            child.getAttribute("data-testid")?.includes("ai");
+            !!child.querySelector('[data-testid="ai-turn"], [data-testid="assistant-message"], .font-claude-message') ||
+            !!child.querySelector('[class*="AssistantMessage"]') ||
+            child.getAttribute("data-testid")?.includes("ai") ||
+            child.getAttribute("data-testid") === "assistant-message";
           if (!isUser && !isAI) return;
           const target = isAI
-            ? (child.querySelector('.font-claude-message, [class*="prose"], [data-testid="ai-turn"]') || child)
-            : child.querySelector('[data-testid="human-turn"]') || child;
+            ? (child.querySelector(
+                '.font-claude-message, [class*="prose"], [data-testid="ai-turn"], ' +
+                '[data-testid="assistant-message"], [class*="AssistantMessage"]'
+              ) || child)
+            : (child.querySelector('[data-testid="user-message"], [data-testid="human-turn"]') || child);
           const t = cleanText(target, STRIP);
-          if (t && t.length >= 2) combined.push({ role: isUser ? "user" : "assistant", content: t, el: child });
+          if (t && t.length >= 2)
+            combined.push({ role: isUser ? "user" : "assistant", content: t, el: child });
         });
         if (combined.length)
           return dedup(combined.map(({ role, content }) => ({ role, content })));
       }
     }
 
-    // S4: ancestry walk on p/li — only inside known turn containers, skip sidebar
+    // S6: ancestry walk on p/li — only inside known turn containers, skip sidebar
     {
       const combined = [];
-      document.querySelectorAll('[data-testid="human-turn"] p, [data-testid="ai-turn"] p').forEach((el) => {
+      const turnSel = [
+        '[data-testid="human-turn"] p',
+        '[data-testid="ai-turn"] p',
+        '[data-testid="user-message"] p',
+        '[data-testid="assistant-message"] p',
+        '.font-claude-message p',
+      ].join(", ");
+
+      document.querySelectorAll(turnSel).forEach((el) => {
         if (inSidebar(el)) return;
         const text = (el.innerText || el.textContent || "").trim();
         if (text.length < 5) return;
+        // Walk up to find the nearest message container
         let container = el;
-        while (container && !container.getAttribute?.("data-testid")?.match(/human-turn|ai-turn/)) {
+        while (container) {
+          const tid = container.getAttribute?.("data-testid") || "";
+          if (tid.match(/human-turn|ai-turn|user-message|assistant-message/)) break;
+          if (container.classList?.contains("font-claude-message")) break;
           container = container.parentElement;
         }
         if (!container) return;
-        const tid = container.getAttribute("data-testid");
-        const role = tid.includes("human") ? "user" : "assistant";
-        combined.push({ role, content: text, el });
+        const tid = container.getAttribute("data-testid") || "";
+        const isUser = tid.includes("human") || tid === "user-message";
+        combined.push({ role: isUser ? "user" : "assistant", content: text, el });
       });
       combined.sort(domOrder);
       if (combined.length)
@@ -257,7 +343,6 @@
 
     return [];
   }
-
   // ── ChatGPT ──────────────────────────────────────────────────────────────────
   function extractChatGPT() {
     const STRIP = ["button", "svg", ".flex.items-center.gap-1"];
@@ -909,4 +994,3 @@ ${rows}
     ? document.addEventListener("DOMContentLoaded", init)
     : init();
 })();
-
