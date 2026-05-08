@@ -4,10 +4,6 @@
 
 # ⬡ ContextBridge — AI Continuity Tool
 
-> **Built for the Hackathon** · Internal Tooling · Cost Reduction + Operational Efficiency
-
----
-
 ## The Problem We're Solving
 
 AI conversations are disposable by design. When a session ends — whether from a token limit, a platform switch, or a colleague handoff — all the context, reasoning, and outputs are trapped inside one platform with no clean way to extract or reuse them.
@@ -56,6 +52,19 @@ It injects a persistent **Export** button directly into the AI chat UI. When you
 3. Open a new tab, paste the file, say *"Continue from this context"*
 4. AI reads the full history and picks up exactly where you left off
 5. Total interruption: **under 60 seconds**
+
+---
+## Implementation Screenshots
+
+<p align="center">
+  <img src="readme/demo1.png" alt="demo" width="700" />
+</p>
+<p align="center">
+  <img src="readme/demo2.png" alt="demo" width="700" />
+</p>
+<p align="center">
+  <img src="readme/demo3.png" alt="demo" width="700" />
+</p>
 
 ---
 
@@ -117,7 +126,7 @@ Since this is an internal tool, install it directly without the Chrome Web Store
 
 ### Method 1: Floating Button (Recommended)
 
-When you're on any supported AI platform, a small **Export** button appears in the bottom-right corner of the page. Click it to see export options. On Claude, you'll also see the **Claude Wrapped** button — a visual summary of your conversation stats.
+When you're on any supported AI platform, a small **Export** button appears in the bottom-right corner of the page. Click it to see export options.
 
 ### Method 2: Extension Popup
 
@@ -125,9 +134,6 @@ Click the ⬡ icon in your browser toolbar to see:
 - Current platform detected (Claude / ChatGPT / Gemini / Grok / DeepSeek / Mistral)
 - Message count and estimated token usage
 - **Context window meter** — live view of how much of the session's token limit is used
-- One-click export buttons for all formats
-- **Claude Wrapped** button (on Claude pages only)
-
 ---
 
 ## Resuming Context in a New Chat
